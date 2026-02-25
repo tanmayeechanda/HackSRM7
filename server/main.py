@@ -1,7 +1,9 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 from typing import Any, Dict, List, Optional
+from datetime import datetime, timezone
 
 from utils.language import detect_language
 from utils.tokens import estimate_tokens
@@ -26,6 +28,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",  # Vite default
+        "http://localhost:5174",  # Vite fallback
         "http://localhost:3000",  # Alternative
         "http://localhost:80",    # Production
     ],
@@ -142,3 +145,191 @@ async def decode_hash_references(
         expanded = expanded.replace(key, pattern)
 
     return {"decoded": expanded}
+
+
+# ── PIPELINE: raw merge ───────────────────────────────────────────────────────
+
+_SEP = "\n" + "═" * 60 + "\n"
+
+
+@app.post("/pipeline/raw", response_class=PlainTextResponse)
+async def pipeline_raw(
+    chat: str = Form(default=""),
+    files: List[UploadFile] = File(default=[]),
+) -> str:
+    """
+    Pipeline 1 — Raw (uncompressed) context bundle.
+
+    Merges the chat transcript and the raw contents of every attached file
+    into a single plain-text document ready to paste into any LLM.
+    """
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    total_tokens = 0
+
+    sections: List[str] = []
+    sections.append(
+        f"╔══════════════════════════════════════════════════════╗\n"
+        f"║        TOKENTRIM  ·  RAW CONTEXT BUNDLE              ║\n"
+        f"╚══════════════════════════════════════════════════════╝\n"
+        f"Generated : {now}\n"
+        f"Files     : {len(files)}\n"
+        f"Mode      : Uncompressed (original content)"
+    )
+
+    # ── Chat section ─────────────────────────────────────────────────────────
+    if chat.strip():
+        chat_tokens = estimate_tokens(chat)
+        total_tokens += chat_tokens
+        sections.append(
+            f"[ CHAT ]  ({chat_tokens:,} tokens)\n"
+            + "-" * 40 + "\n"
+            + chat.strip()
+        )
+
+    # ── File sections ─────────────────────────────────────────────────────────
+    for idx, upload in enumerate(files, start=1):
+        raw = await upload.read(MAX_FILE_SIZE + 1)
+        if len(raw) > MAX_FILE_SIZE:
+            raise HTTPException(
+                status_code=413,
+                detail=f"{upload.filename}: exceeds 10 MB limit.",
+            )
+        try:
+            text = raw.decode("utf-8", errors="replace")
+        except Exception:
+            text = raw.decode("latin-1", errors="replace")
+
+        filename = upload.filename or f"file_{idx}"
+        language = detect_language(filename)
+        file_tokens = estimate_tokens(text)
+        total_tokens += file_tokens
+
+        sections.append(
+            f"[ FILE {idx}: {filename} ]  language={language}  ({file_tokens:,} tokens)\n"
+            + "-" * 40 + "\n"
+            + text.rstrip()
+        )
+
+    # ── Footer ────────────────────────────────────────────────────────────────
+    sections.append(f"[ END OF BUNDLE ]  Total estimated tokens: {total_tokens:,}")
+
+    return _SEP.join(sections)
+
+
+# ── PIPELINE: compressed merge ────────────────────────────────────────────────
+
+@app.post("/pipeline/compressed", response_class=PlainTextResponse)
+async def pipeline_compressed(
+    chat: str = Form(default=""),
+    files: List[UploadFile] = File(default=[]),
+    aggressive: bool = False,
+) -> str:
+    """
+    Pipeline 2 — Compressed context bundle.
+
+    Runs the full TokenTrim compression pipeline on each file, then merges
+    the best-level compressed output together with the chat transcript into
+    a single plain-text document.  A decode preamble is prepended so any LLM
+    can expand hash references on the fly.
+    """
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    original_total = 0
+    compressed_total = 0
+
+    # ── Compress all files first so we can compute aggregate stats ────────────
+    file_reports = []
+    for idx, upload in enumerate(files, start=1):
+        raw = await upload.read(MAX_FILE_SIZE + 1)
+        if len(raw) > MAX_FILE_SIZE:
+            raise HTTPException(
+                status_code=413,
+                detail=f"{upload.filename}: exceeds 10 MB limit.",
+            )
+        try:
+            text = raw.decode("utf-8", errors="replace")
+        except Exception:
+            text = raw.decode("latin-1", errors="replace")
+
+        filename = upload.filename or f"file_{idx}"
+        language = detect_language(filename)
+        report = compress_to_dict(
+            text=text,
+            filename=filename,
+            language=language,
+            aggressive_minify=aggressive,
+        )
+        original_total += report["originalTokens"]
+        compressed_total += report["bestTokens"]
+        file_reports.append((idx, filename, report))
+
+    chat_tokens = estimate_tokens(chat) if chat.strip() else 0
+    overall_pct = (
+        round((1 - compressed_total / original_total) * 100, 1)
+        if original_total > 0
+        else 0.0
+    )
+
+    sections: List[str] = []
+    sections.append(
+        f"╔══════════════════════════════════════════════════════╗\n"
+        f"║     TOKENTRIM  ·  COMPRESSED CONTEXT BUNDLE          ║\n"
+        f"╚══════════════════════════════════════════════════════╝\n"
+        f"Generated   : {now}\n"
+        f"Files       : {len(file_reports)}\n"
+        f"Mode        : Compressed (Huffman + minification + summarisation)\n"
+        f"Orig tokens : {original_total:,}\n"
+        f"Best tokens : {compressed_total:,}\n"
+        f"Reduction   : {overall_pct}%"
+    )
+
+    # ── Aggregate decode preamble (union of all hash tables) ─────────────────
+    if file_reports:
+        all_hashes: Dict[str, str] = {}
+        for _, _, rpt in file_reports:
+            all_hashes.update(rpt["hashTable"]["decodeMap"])
+        if all_hashes:
+            preamble_lines = [
+                "[ DECODE PREAMBLE — hash reference table for all files ]",
+                "-" * 40,
+                "Hash references (e.g. #a1b2c3) stand for repeated code patterns.",
+                "Expand them when reading the compressed sections below.",
+                "",
+            ]
+            for key, pattern in all_hashes.items():
+                display = pattern[:120] + "…" if len(pattern) > 120 else pattern
+                display = display.replace("\n", "\\n")
+                preamble_lines.append(f"  {key}  →  {display}")
+            sections.append("\n".join(preamble_lines))
+
+    # ── Chat section ─────────────────────────────────────────────────────────
+    if chat.strip():
+        sections.append(
+            f"[ CHAT ]  ({chat_tokens:,} tokens)\n"
+            + "-" * 40 + "\n"
+            + chat.strip()
+        )
+
+    # ── Compressed file sections ───────────────────────────────────────────
+    for idx, filename, rpt in file_reports:
+        best_level = rpt["bestLevel"]
+        best_content = rpt["summaryLevels"][best_level]["content"]
+        orig_t = rpt["originalTokens"]
+        best_t = rpt["bestTokens"]
+        reduction = rpt["overallReductionPct"]
+        huffman_ratio = rpt["huffman"]["compressionRatio"]
+
+        header = (
+            f"[ FILE {idx}: {filename} ]  "
+            f"level={best_level}  orig={orig_t:,}t → compressed={best_t:,}t  "
+            f"reduction={reduction}%  huffman={huffman_ratio:.2f}x"
+        )
+        sections.append(header + "\n" + "-" * 40 + "\n" + best_content.rstrip())
+
+    # ── Footer ────────────────────────────────────────────────────────────────
+    sections.append(
+        f"[ END OF BUNDLE ]  "
+        f"Compressed tokens: {compressed_total:,}  "
+        f"(was {original_total:,}, saved {overall_pct}%)"
+    )
+
+    return _SEP.join(sections)

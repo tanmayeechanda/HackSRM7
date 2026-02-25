@@ -8,6 +8,7 @@ import FilePanel from "../components/FilePanel";
 import CompressPreview from "../components/CompressPreview";
 import { useMultiFileAnalyzer } from "../hooks/useMultiFileAnalyzer";
 import { useCompressor } from "../hooks/useCompressor";
+import { usePipeline } from "../hooks/usePipeline";
 import { useCompressResults } from "../contexts/CompressResultsContext";
 
 let msgCounter = 0;
@@ -21,6 +22,7 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const { entries: fileEntries, resolvedFiles, addFiles, removeFile } = useMultiFileAnalyzer();
   const { compResults, compressing, compressFiles, clearResults } = useCompressor();
+  const { running: pipelineRunning, exportRaw, exportCompressed } = usePipeline();
   const [showResults, setShowResults] = useState(false);
 
   const handleCompress = useCallback(() => {
@@ -105,6 +107,10 @@ export default function ChatPage() {
         onCompress={handleCompress}
         compressing={compressing}
         hasCompressResults={compResults.length > 0 && showResults}
+        onExportRaw={() => exportRaw(messages, fileEntries)}
+        onExportCompressed={() => exportCompressed(messages, fileEntries)}
+        exportingRaw={pipelineRunning === "raw"}
+        exportingCompressed={pipelineRunning === "compressed"}
       />
     </div>
   );

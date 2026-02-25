@@ -1,7 +1,7 @@
 import { useState } from "react";
 import {
   FileText, Upload, X, Loader2, Hash, Cpu, HardDrive,
-  AlertCircle, ChevronDown, Layers, Zap,
+  AlertCircle, ChevronDown, Layers, Zap, Download,
 } from "lucide-react";
 import type { FileEntry, AnalyzedFile } from "../hooks/useMultiFileAnalyzer";
 import { formatSize } from "../hooks/useFileAnalyzer";
@@ -104,6 +104,10 @@ export interface FilePanelProps {
   onCompress: () => void;
   compressing: boolean;
   hasCompressResults: boolean;
+  onExportRaw: () => void;
+  onExportCompressed: () => void;
+  exportingRaw: boolean;
+  exportingCompressed: boolean;
 }
 
 export default function FilePanel({
@@ -113,6 +117,10 @@ export default function FilePanel({
   onCompress,
   compressing,
   hasCompressResults,
+  onExportRaw,
+  onExportCompressed,
+  exportingRaw,
+  exportingCompressed,
 }: FilePanelProps) {
   const totalTokens = resolvedFiles.reduce((sum, f) => sum + f.tokenEstimate, 0);
   const hasResolved = resolvedFiles.length > 0;
@@ -182,6 +190,37 @@ export default function FilePanel({
                 <Zap size={15} />
                 Compress Files
               </>
+            )}
+          </button>
+
+          {/* ── Pipeline export buttons ───────────────────────────────── */}
+          <div className="fp-pipeline-label">Export Context Bundle</div>
+
+          <button
+            className="fp-pipeline-btn fp-pipeline-btn--raw"
+            onClick={onExportRaw}
+            disabled={exportingRaw || exportingCompressed}
+            type="button"
+            title="Download chat + raw file contents as a single .txt"
+          >
+            {exportingRaw ? (
+              <><Loader2 size={14} className="fc-spinner" /> Building…</>
+            ) : (
+              <><Download size={14} /> Raw Bundle (.txt)</>
+            )}
+          </button>
+
+          <button
+            className="fp-pipeline-btn fp-pipeline-btn--compressed"
+            onClick={onExportCompressed}
+            disabled={exportingRaw || exportingCompressed}
+            type="button"
+            title="Download chat + compressed file contents as a single .txt"
+          >
+            {exportingCompressed ? (
+              <><Loader2 size={14} className="fc-spinner" /> Compressing…</>
+            ) : (
+              <><Download size={14} /> Compressed Bundle (.txt)</>
             )}
           </button>
         </div>

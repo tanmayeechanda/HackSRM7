@@ -1879,6 +1879,68 @@
   box-shadow: 0 4px 20px rgba(5, 150, 105, 0.4);
 }
 
+/* ── Pipeline export section ────────────────────── */
+
+.fp-pipeline-label {
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #4a4a72;
+  margin-top: 0.65rem;
+  margin-bottom: 0.1rem;
+  padding: 0 0.1rem;
+}
+
+.fp-pipeline-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  width: 100%;
+  padding: 0.55rem 0.9rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border-radius: 9px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+}
+
+.fp-pipeline-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+.fp-pipeline-btn--raw {
+  color: #c4b5fd;
+  background: rgba(124, 58, 237, 0.12);
+  border-color: rgba(167, 139, 250, 0.22);
+  margin-top: 0.4rem;
+}
+
+.fp-pipeline-btn--raw:hover:not(:disabled) {
+  background: rgba(124, 58, 237, 0.22);
+  border-color: rgba(167, 139, 250, 0.4);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 14px rgba(124, 58, 237, 0.25);
+}
+
+.fp-pipeline-btn--compressed {
+  color: #6ee7b7;
+  background: rgba(16, 185, 129, 0.1);
+  border-color: rgba(52, 211, 153, 0.22);
+  margin-top: 0.35rem;
+}
+
+.fp-pipeline-btn--compressed:hover:not(:disabled) {
+  background: rgba(16, 185, 129, 0.2);
+  border-color: rgba(52, 211, 153, 0.4);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 14px rgba(16, 185, 129, 0.2);
+}
+
 /* ═══════════════════════════════════════════════════
    COMPRESS RESULTS PANEL  (replaces ChatArea)
 ═══════════════════════════════════════════════════ */
