@@ -17,6 +17,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import type { FileCompressionEntry } from "../hooks/useCompressor";
+import MonacoViewer from "./MonacoViewer";
 
 // ── Per-file result card ────────────────────────────────────────────────────
 
@@ -178,8 +179,8 @@ function ResultCard({ entry }: ResultCardProps) {
             ))}
           </div>
 
-          {/* Code viewer */}
-          <div className="cr-code-wrap">
+          {/* Code viewer — Monaco Editor */}
+          <div className="cr-code-wrap cr-code-wrap--monaco">
             <button
               className="cr-copy-btn"
               onClick={handleCopy}
@@ -188,9 +189,12 @@ function ResultCard({ entry }: ResultCardProps) {
             >
               {copied ? <Check size={13} /> : <Copy size={13} />}
             </button>
-            <pre className="cr-code">
-              <code>{tabContent[tab]}</code>
-            </pre>
+            <MonacoViewer
+              value={tabContent[tab]}
+              language={r.language}
+              lineNumbers={tab === "original"}
+              maxHeight={320}
+            />
           </div>
 
           {/* Decode preamble (collapsible) */}
@@ -255,9 +259,12 @@ function DecodePreamble({ preamble }: { preamble: string }) {
           >
             {copied ? <Check size={13} /> : <Copy size={13} />}
           </button>
-          <pre className="cr-code cr-code--preamble">
-            <code>{preamble}</code>
-          </pre>
+          <MonacoViewer
+            value={preamble}
+            language="plaintext"
+            maxHeight={180}
+            minHeight={80}
+          />
         </div>
       )}
     </div>

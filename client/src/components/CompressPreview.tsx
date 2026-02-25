@@ -11,6 +11,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import type { FileCompressionEntry } from "../hooks/useCompressor";
+import MonacoViewer from "./MonacoViewer";
 
 type PreviewTab = "original" | "compressed";
 
@@ -161,8 +162,8 @@ export default function CompressPreview({
         </button>
       </div>
 
-      {/* Code preview */}
-      <div className="cp-code-wrap">
+      {/* Code preview — Monaco Editor */}
+      <div className="cp-code-wrap cp-code-wrap--monaco">
         <button
           className="cp-copy-btn"
           onClick={handleCopy}
@@ -171,9 +172,12 @@ export default function CompressPreview({
         >
           {copied ? <Check size={12} /> : <Copy size={12} />}
         </button>
-        <pre className="cp-code">
-          <code>{content}</code>
-        </pre>
+        <MonacoViewer
+          value={content}
+          language={r.language}
+          lineNumbers={tab === "original"}
+          maxHeight={280}
+        />
       </div>
 
       {/* Show details button */}
