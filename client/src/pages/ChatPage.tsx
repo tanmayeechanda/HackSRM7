@@ -75,25 +75,25 @@ export default function ChatPage() {
         />
       </div>
 
-      {/* Center column */}
+      {/* Centered column: chat → file tray → input */}
       <div className="chat-center">
         <ChatArea messages={messages} />
+
+        <FilePanel
+          entries={fileEntries}
+          resolvedFiles={resolvedFiles}
+          onRemove={removeFile}
+          onCompress={handleCompress}
+          compressing={compressing}
+          hasCompressResults={compResults.length > 0}
+        />
+
         <PromptInput
           onSend={handleSend}
           onAddFiles={addFiles}
           hasFiles={fileEntries.length > 0}
         />
       </div>
-
-      {/* Right file panel — Files only */}
-      <FilePanel
-        entries={fileEntries}
-        resolvedFiles={resolvedFiles}
-        onRemove={removeFile}
-        onCompress={handleCompress}
-        compressing={compressing}
-        hasCompressResults={compResults.length > 0}
-      />
     </div>
   );
 }
