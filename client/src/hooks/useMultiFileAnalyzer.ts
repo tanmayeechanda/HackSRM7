@@ -31,7 +31,7 @@ export interface AnalyzedFile {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const API_BASE = import.meta.env.VITE_API_URL as string;
+const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "http://localhost:8000";
 const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
