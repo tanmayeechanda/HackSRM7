@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
 import Galaxy from "../background";
 import ChatArea from "../components/ChatArea";
 import type { Message } from "../components/ChatArea";
@@ -75,8 +76,17 @@ export default function ChatPage() {
         />
       </div>
 
-      {/* Centered column: chat → file tray → input */}
+      {/* Centered column: topbar → chat → file tray → input */}
       <div className="chat-center">
+        <nav className="chat-topbar">
+          <button className="chat-topbar-back" onClick={() => navigate("/")} type="button">
+            <ArrowLeft size={15} />
+            Home
+          </button>
+          <span className="chat-topbar-title">TokenTrim</span>
+          <span className="chat-topbar-hint">Attach files · write a prompt · compress</span>
+        </nav>
+
         <ChatArea messages={messages} />
 
         <FilePanel
