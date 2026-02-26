@@ -24,7 +24,7 @@ export interface PipelineState {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const API_BASE = "http://localhost:8000";
+const API_BASE = import.meta.env.VITE_API_URL as string;
 
 const ENDPOINT: Record<PipelineMode, string> = {
   "raw":            "/pipeline/raw",
