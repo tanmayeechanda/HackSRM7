@@ -24,6 +24,7 @@ from engine import huffman_encode, huffman_decode, HuffmanResult
 from engine.minifier import minify_code, MinifyResult
 from engine.chunker import chunk_code, CodeChunk, ChunkKind, extract_signatures
 from engine.summariser import summarise, SummaryResult
+from utils.tokens import estimate_tokens
 
 
 # ── Report ────────────────────────────────────────────────────────────────────
@@ -97,7 +98,8 @@ def _build_decode_preamble(hash_map: Dict[str, str], language: str) -> str:
     lines: list[str] = []
     lines.append("// ═══ TOKENTRIM COMPRESSION ANALYSIS ═══")
     lines.append("// This code has been analyzed by TokenTrim.")
-    lines.append("// All original code is preserved — only comments and blank lines removed.")
+    lines.append("// All original logic is preserved.")
+    lines.append("// Comments/blank lines may be removed and repeated patterns may be hash-referenced.")
     lines.append("//")
 
     if hash_map:
@@ -114,7 +116,7 @@ def _build_decode_preamble(hash_map: Dict[str, str], language: str) -> str:
     lines.append(f"// Language: {language}")
     lines.append("// 1. All actual code logic is fully preserved.")
     lines.append("// 2. Comments and blank lines have been stripped for token efficiency.")
-    lines.append("// 3. No data has been omitted or replaced.")
+    lines.append("// 3. Expand any #hash keys using the decode table to recover repeated patterns.")
     lines.append("// ═══════════════════════════════════")
     lines.append("")
 
@@ -146,14 +148,14 @@ def compress(text: str, filename: str = "unknown",
     CompressionReport
         Full breakdown of all compression stages.
     """
-    original_tokens = max(1, len(text) // 4)
+    original_tokens = estimate_tokens(text)
     original_lines = len(text.splitlines())
 
     # ── Step 1: Minify ────────────────────────────────────────────────────────
     minified: MinifyResult = minify_code(
         text, language=language, aggressive=aggressive_minify
     )
-    minified_tokens = max(1, len(minified.minified) // 4)
+    minified_tokens = estimate_tokens(minified.minified)
 
     # ── Step 2: Chunk ─────────────────────────────────────────────────────────
     chunks: List[CodeChunk] = chunk_code(text, language)
@@ -272,6 +274,10 @@ def compress_to_dict(text: str, filename: str = "unknown",
         "totalChunks": report.total_chunks,
 
         "summaryLevels": {
+            "minified": {
+                "content": report.minified_code,
+                "tokens": report.minified_tokens,
+            },
             "skeleton": {
                 "content": report.skeleton,
                 "tokens": report.skeleton_tokens,

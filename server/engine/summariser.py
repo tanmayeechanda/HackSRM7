@@ -22,6 +22,7 @@ from typing import Dict, List, Optional, Tuple
 
 from engine.chunker import CodeChunk, ChunkKind, chunk_code, extract_signatures
 from engine.minifier import minify_code
+from utils.tokens import estimate_tokens
 
 
 # ── Hash table for repeated patterns ─────────────────────────────────────────
@@ -93,18 +94,17 @@ def _find_repeated_patterns(text: str, min_len: int = 30, min_count: int = 2) ->
 def _apply_hash_references(text: str, hash_table: HashTable,
                            patterns: list[str]) -> str:
     """
-    Annotate repeated patterns with hash references WITHOUT removing data.
-    
-    This keeps ALL original code intact and only adds hash annotations
-    as comments to indicate repeated patterns for analysis purposes.
-    The actual code is fully preserved.
+    Replace repeated patterns with short hash references and record decode map.
+
+    This reduces token footprint in the compressed representation while
+    preserving full recoverability through ``hash_table``.
     """
     result = text
-    for pattern in patterns:
+    for pattern in sorted(patterns, key=len, reverse=True):
+        if result.count(pattern) < 2:
+            continue
         key = hash_table.add(pattern)
-        # Just record the pattern in the hash table for reference
-        # but do NOT replace or remove any original code
-        # The hash table provides lookup info, but code stays intact
+        result = result.replace(pattern, key)
     return result
 
 
@@ -283,19 +283,19 @@ def summarise(text: str, language: str = "unknown",
     """
     # Chunk the code
     chunks = chunk_code(text, language)
-    original_tokens = max(1, len(text) // 4)
+    original_tokens = estimate_tokens(text)
 
     # Level 1: Skeleton
     skeleton = generate_skeleton(chunks)
-    skeleton_tokens = max(1, len(skeleton) // 4)
+    skeleton_tokens = estimate_tokens(skeleton)
 
     # Level 2: Architecture
     architecture = generate_architecture(text, chunks, filename)
-    arch_tokens = max(1, len(architecture) // 4)
+    arch_tokens = estimate_tokens(architecture)
 
     # Level 3: Compressed
     compressed, hash_table = generate_compressed(text, language, aggressive=True)
-    compressed_tokens = max(1, len(compressed) // 4)
+    compressed_tokens = estimate_tokens(compressed)
 
     # Pick best level — only between minified/compressed representations.
     # Skeleton and architecture are structural views, not real compression;

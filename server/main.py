@@ -300,7 +300,7 @@ async def pipeline_compressed(
         f"╚══════════════════════════════════════════════════════╝\n"
         f"Generated   : {now}\n"
         f"Files       : {len(file_reports)}\n"
-        f"Mode        : Compressed (Huffman + minification + summarisation)\n"
+        f"Mode        : Compressed (minification + hash references; Huffman stats shown)\n"
         f"Orig tokens : {original_total:,}\n"
         f"Best tokens : {compressed_total:,}\n"
         f"Reduction   : {overall_pct}%"
