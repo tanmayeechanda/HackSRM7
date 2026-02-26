@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 
 from utils.language import detect_language
 from utils.tokens import estimate_tokens
+from utils.pdf_extractor import extract_pdf_text, is_pdf
 from engine.pipeline import compress_to_dict
 from engine.lossless import (
     lossless_encode,
@@ -68,10 +69,18 @@ async def analyze_file(file: UploadFile = File(...)):
 
     language = detect_language(filename)
 
-    try:
-        text = content.decode("utf-8", errors="replace")
-    except Exception:
-        text = content.decode("latin-1", errors="replace")
+    # ── PDF: extract text layer before any processing ──────────────────────
+    if is_pdf(filename, content):
+        try:
+            text = extract_pdf_text(content)
+            language = "PDF (Plain Text)"
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc))
+    else:
+        try:
+            text = content.decode("utf-8", errors="replace")
+        except Exception:
+            text = content.decode("latin-1", errors="replace")
 
     token_estimate = estimate_tokens(text)
 
@@ -108,13 +117,21 @@ async def compress_file(
                    f"({len(content) / (1024 * 1024):.2f} MB received).",
         )
 
-    try:
-        text = content.decode("utf-8", errors="replace")
-    except Exception:
-        text = content.decode("latin-1", errors="replace")
-
     filename = file.filename or "unknown"
     language = detect_language(filename)
+
+    # ── PDF: extract text layer before compression ─────────────────────────
+    if is_pdf(filename, content):
+        try:
+            text = extract_pdf_text(content)
+            language = "PDF (Plain Text)"
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc))
+    else:
+        try:
+            text = content.decode("utf-8", errors="replace")
+        except Exception:
+            text = content.decode("latin-1", errors="replace")
 
     result = compress_to_dict(
         text=text,
